@@ -22,31 +22,30 @@ class LiteroticaArticle:
         self.url = url
         # self.queue = gevent.Queue()
 
-
     def get_article(self):
         r = opener.open(self.url).read()
         soup = BeautifulSoup(r.decode(), 'lxml')
         pagenum = int(soup.find('span', {'class': 'b-pager-caption-t'}).text.split()[0])
-        self.article = str(soup.find('div', {'class': 'b-story-body-x'}).div.p)
+        self.article = soup.find('div', {'class': 'b-story-body-x'}).div.p.text
 
-        a = gevent.joinall([gevent.spawn(self._get_page, i) \
-                                for i in range(1, pagenum+1)], 
-                            timeout=10)
+        a = gevent.joinall([gevent.spawn(self._get_page, i)
+                            for i in range(2, pagenum+1)], timeout=10)
         self.article += ''.join(map(lambda x: x[1], sorted((t.value for t in a),
                                                             key=lambda x: x[0])))
+        # a = [self._get_page(i) for i in range(2, pagenum+1)]
+        # self.article += ''.join(map(lambda x: x[1], sorted(a, key=lambda x: x[0])))
+
         return self.article
 
-
+    #TODO
     def generate_html(self):
         pass
-
 
     def _get_page(self, num):
         r = opener.open(self.url+'?page={0}'.format(num)).read()
         soup = BeautifulSoup(r.decode(), 'lxml')
-        article = str(soup.find('div', {'class': 'b-story-body-x'}).div.p)
+        article = soup.find('div', {'class': 'b-story-body-x'}).div.p.text
         return (num, article)
-
 
 
 class PageGenerator:
@@ -54,9 +53,10 @@ class PageGenerator:
     def __init__(self, arg):
         super(PageGenerator, self).__init__()
         self.arg = arg
-        
 
 
 if __name__ == '__main__':
-    t = LiteroticaArticle('https://www.literotica.com/s/the-specimen-1')
-    print(len(t.get_article()))
+    t = LiteroticaArticle('https://www.literotica.com/s/female-sexual-response-subject-326')
+    a = t.get_article()
+    with open('test.txt', 'w') as fh:
+        fh.write(a)
