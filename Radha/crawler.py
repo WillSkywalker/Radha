@@ -3,15 +3,26 @@
 
 
 import gevent
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 
 import urllib.request
 import http.cookiejar
 from bs4 import BeautifulSoup
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+# import redis
+from celery import Celery
+
+from models import EroticArticle, Paragraph
+from config import Config
 
 cookie = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie))
+db_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI, encoding='utf-8')
+mq = Celery(__name__, broker='redis://localhost')
 
 
 class LiteroticaArticle:
@@ -20,43 +31,60 @@ class LiteroticaArticle:
     def __init__(self, url):
         assert url.startswith('https://www.literotica.com/s/')
         self.url = url
+        self.db_session = Session(db_engine)
         # self.queue = gevent.Queue()
 
     def get_article(self):
         r = opener.open(self.url).read()
         soup = BeautifulSoup(r.decode(), 'lxml')
-        pagenum = int(soup.find('span', {'class': 'b-pager-caption-t'}).text.split()[0])
+        self.pagenum = int(soup.find('span', {'class': 'b-pager-caption-t'}).text.split()[0])
         self.article = soup.find('div', {'class': 'b-story-body-x'}).div.p.text
-
+        self.title = soup.find('div', {'class': 'b-story-header'}).h1.text
+        self.category = soup.find('div', {'class': 'b-breadcrumbs'}).find_all('a')[1].text
+        self.tags = ''
         a = gevent.joinall([gevent.spawn(self._get_page, i)
-                            for i in range(2, pagenum+1)], timeout=10)
+                            for i in range(2, self.pagenum+1)], timeout=10)
         self.article += ''.join(map(lambda x: x[1], sorted((t.value for t in a),
-                                                            key=lambda x: x[0])))
+                                key=lambda x: x[0])))
         # a = [self._get_page(i) for i in range(2, pagenum+1)]
         # self.article += ''.join(map(lambda x: x[1], sorted(a, key=lambda x: x[0])))
 
         return self.article
 
     #TODO
-    def generate_html(self):
-        pass
+    def to_json(self):
+        return self.__dict__
+
+    def add_to_database(self):
+        post = EroticArticle(title=self.title,
+                             category=self.category,
+                             tags=self.tags,
+                             url=self.url)
+        self.db_session.add(post)
+        self.db_session.commit()
+
+        for idx, para in enumerate(self.article.split('\n')):
+            if para:
+                self.db_session.add(Paragraph(content=para, art_id=post.id, para_idx=idx))
+        self.db_session.commit()
 
     def _get_page(self, num):
         r = opener.open(self.url+'?page={0}'.format(num)).read()
         soup = BeautifulSoup(r.decode(), 'lxml')
         article = soup.find('div', {'class': 'b-story-body-x'}).div.p.text
+        if num == self.pagenum:
+            self.tags = soup.find('div', {'class': 'b-s-story-tag-list'}).ul.text
         return (num, article)
 
 
-class PageGenerator:
-    """generate a static page"""
-    def __init__(self, arg):
-        super(PageGenerator, self).__init__()
-        self.arg = arg
+@mq.task
+def save_article(url):
+    art = LiteroticaArticle(url)
+    art.get_article()
+    art.add_to_database()
 
 
 if __name__ == '__main__':
     t = LiteroticaArticle('https://www.literotica.com/s/female-sexual-response-subject-326')
     a = t.get_article()
-    with open('test.txt', 'w') as fh:
-        fh.write(a)
+    t.add_to_database()
