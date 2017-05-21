@@ -32,7 +32,10 @@ cookie = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie))
 
 
-@app.route('/api/word/<name>')
+EroticArticle.__bases__ = EroticArticle.__bases__ + (db.Model,)
+
+
+@app.route('/api/word/<name>/')
 @cross_origin()
 def word(name):
 
@@ -50,9 +53,18 @@ def word(name):
     return definition
 
 
+@app.route('/api/article/')
+def get_articles():
+    arts = EroticArticle.query.order_by(-EroticArticle.id).limit(5)
+    return jsonify(list(map(lambda x: x.to_dict(), arts)))
+
+
+@app.route('/api/article/<int:idx>/')
 def get_article(idx):
-    # EroticArticle.
-    pass
+    art = EroticArticle.query.filter_by(id=idx).first_or_404()
+    return jsonify(art.to_dict_w_details())
+
+
 
 
 # if __name__ == '__main__':

@@ -10,7 +10,7 @@ import urllib.request
 import http.cookiejar
 from bs4 import BeautifulSoup
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, exists
 from sqlalchemy.orm import Session
 
 # import redis
@@ -33,6 +33,9 @@ class LiteroticaArticle:
         self.url = url
         self.db_session = Session(db_engine)
         # self.queue = gevent.Queue()
+        if self.db_session.query(exists().where(EroticArticle.url == url)).scalar():  # Article exists
+            self.get_article = lambda: None
+            self.add_to_database = lambda: None
 
     def get_article(self):
         r = opener.open(self.url).read()
@@ -59,7 +62,8 @@ class LiteroticaArticle:
         post = EroticArticle(title=self.title,
                              category=self.category,
                              tags=self.tags,
-                             url=self.url)
+                             url=self.url,
+                             viewcount=0)
         self.db_session.add(post)
         self.db_session.commit()
 
@@ -85,6 +89,6 @@ def save_article(url):
 
 
 if __name__ == '__main__':
-    t = LiteroticaArticle('https://www.literotica.com/s/female-sexual-response-subject-326')
+    t = LiteroticaArticle('https://www.literotica.com/s/breeding-time-at-the-hucow-farm-ch-04')
     a = t.get_article()
     t.add_to_database()
