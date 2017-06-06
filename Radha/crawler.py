@@ -89,6 +89,6 @@ def save_article(url):
 
 
 if __name__ == '__main__':
-    t = LiteroticaArticle('https://www.literotica.com/s/breeding-time-at-the-hucow-farm-ch-04')
+    t = LiteroticaArticle('https://www.literotica.com/s/hunted-1')
     a = t.get_article()
     t.add_to_database()

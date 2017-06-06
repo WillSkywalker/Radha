@@ -25,10 +25,12 @@ class EroticArticle(Base):
     def to_dict(self):
         cols = {col.name: getattr(self, col.name) for col in self.__table__.columns}
         cols['tags'] = list(map(lambda x: x.strip(), self.tags.split('\xa0– ')))
+        cols['content'] = '\n\n'.join((self.content[0].content, self.content[1].content))
         return cols
 
     def to_dict_w_details(self):
         cols = {col.name: getattr(self, col.name) for col in self.__table__.columns}
+        cols['tags'] = list(map(lambda x: x.strip(), self.tags.split('\xa0– ')))
         rels = {rel.key: self.get_content(rel.key) for rel in inspect(self.__class__).relationships}
         return {**cols, **rels}
 

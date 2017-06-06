@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -_- coding: utf-8 -_-
 
-from flask import Flask
-from flask import jsonify
+from flask import Flask, request, jsonify
 
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
@@ -35,7 +34,7 @@ opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie))
 EroticArticle.__bases__ = EroticArticle.__bases__ + (db.Model,)
 
 
-@app.route('/api/word/<name>/')
+@app.route('/api/word/<name>')
 @cross_origin()
 def word(name):
 
@@ -53,15 +52,28 @@ def word(name):
     return definition
 
 
-@app.route('/api/article/')
+@app.route('/api/article')
 def get_articles():
-    arts = EroticArticle.query.order_by(-EroticArticle.id).limit(5)
+    sort_by = request.args.get('sort')
+    if sort_by == 'viewcount':
+        arts = EroticArticle.query.order_by(EroticArticle.viewcount).limit(5)
+    elif sort_by == 'alphabet':
+        arts = EroticArticle.query.order_by(EroticArticle.title).limit(5)
+
+
+    else:
+        arts = EroticArticle.query.order_by(-EroticArticle.id).limit(5)
     return jsonify(list(map(lambda x: x.to_dict(), arts)))
 
 
-@app.route('/api/article/<int:idx>/')
+@app.route('/api/article/<int:idx>')
 def get_article(idx):
     art = EroticArticle.query.filter_by(id=idx).first_or_404()
+    if isinstance(art.viewcount, int):
+        art.viewcount += 1
+    else:
+        art.viewcount = 0
+
     return jsonify(art.to_dict_w_details())
 
 
