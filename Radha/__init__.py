@@ -47,7 +47,7 @@ def word(name):
         RED.set('word:'+name, definition)
     except KeyError:
         definition = '暂无释义...'
-        RED.set('word:'+name, '暂无释义...', ex=3600)
+        RED.set('word:'+name, '暂无释义...', ex=72000)
     # return json.loads(r)
     return definition
 
@@ -63,6 +63,19 @@ def get_articles():
 
     else:
         arts = EroticArticle.query.order_by(-EroticArticle.id).limit(5)
+    return jsonify(list(map(lambda x: x.to_dict(), arts)))
+
+
+@app.route('/api/category/<path:name>')
+def get_category(name):
+    sort_by = request.args.get('sort')
+    page = request.args.get('page')
+    if sort_by == 'viewcount':
+        arts = EroticArticle.query.filter_by(category=name).order_by(EroticArticle.viewcount)
+    elif sort_by == 'alphabet':
+        arts = EroticArticle.query.filter_by(category=name).order_by(EroticArticle.title)
+    else:
+        arts = EroticArticle.query.filter_by(category=name).order_by(-EroticArticle.id)
     return jsonify(list(map(lambda x: x.to_dict(), arts)))
 
 
