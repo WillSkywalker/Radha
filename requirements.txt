@@ -26,3 +26,4 @@ six==1.10.0
 SQLAlchemy==1.1.9
 vine==1.1.3
 Werkzeug==0.12.1
+uwsgi
